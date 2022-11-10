@@ -1,0 +1,93 @@
+/* Query 1 */
+
+SELECT m.Name,
+       count(*) AS COUNT
+FROM MediaType m
+JOIN Track t ON m.MediaTypeId=t.MediaTypeId
+JOIN InvoiceLine il ON il.TrackId=t.TrackId
+JOIN Invoice i ON i.InvoiceId=il.InvoiceId
+GROUP BY 1
+ORDER BY 2 DESC
+
+
+/* Query 2 */
+WITH T1 AS
+  (SELECT ar.ArtistId,
+          ar.name,
+          sum(il.UnitPrice*il.Quantity) AS total_spent
+   FROM Invoice i
+   JOIN InvoiceLine il ON il.InvoiceId=i.InvoiceId
+   JOIN Track t ON t.TrackId=il.TrackId
+   JOIN Album al ON al.AlbumId=t.AlbumId
+   JOIN Artist ar ON ar.ArtistId=al.ArtistId
+   GROUP BY 1,
+            2
+   ORDER BY 3 DESC
+   LIMIT 1)
+SELECT c.Country,
+       ar.Name,
+       count(*)
+FROM Customer c
+JOIN Invoice i ON c.CustomerId=i.CustomerId
+JOIN InvoiceLine il ON il.InvoiceId=i.InvoiceId
+JOIN Track t ON t.TrackId=il.TrackId
+JOIN Album a ON a.AlbumId=t.AlbumId
+JOIN Artist ar ON ar.ArtistId=a.ArtistId
+AND ar.ArtistId=
+  (SELECT T1.ArtistId
+   FROM T1)
+GROUP BY 1,
+         2
+ORDER BY 3 DESC
+limit 10
+
+/* Query 3 */
+WITH reports_to AS
+  (SELECT DISTINCT EmployeeId,
+                   FirstName || ' ' || LastName AS Direct_manager
+   FROM Employee)
+SELECT e.EmployeeId,
+       e.FirstName || ' ' || e.LastName AS FullName,
+       r.Direct_manager,
+       e.ReportsTo,
+       sum(il.UnitPrice*il.Quantity) AS total_spent
+FROM reports_to r
+JOIN Employee e ON r.EmployeeId =e.ReportsTo
+JOIN Customer c ON e.EmployeeId=c.SupportRepId
+JOIN Invoice i ON i.CustomerId=c.CustomerId
+JOIN InvoiceLine il ON i.InvoiceId=il.InvoiceId
+GROUP BY 1,
+         2,
+         3,
+         4
+ORDER BY 5
+
+
+
+/* Query 4 */
+
+WITH T1 AS
+  (SELECT avg(Milliseconds)
+   FROM Track),
+     T2 AS
+  (SELECT pl.PlaylistId,
+          pl.Name,
+          (avg(t.Milliseconds)/
+             (SELECT *
+              FROM T1)) AS percent_to_avg
+   FROM Playlist pl
+   JOIN PlaylistTrack plt ON pl. PlaylistId=plt.PlaylistId
+   JOIN Track t ON plt.TrackId=t.TrackId
+   GROUP BY 1,
+            2
+   ORDER BY 3 DESC)
+SELECT DISTINCT T2.Name|| '/' || CASE
+                                     WHEN T2.percent_to_avg > 2 THEN 'Long'
+                                     WHEN T2.percent_to_avg > 0.8
+                                          AND T2.percent_to_avg <= 2 THEN 'medium'
+                                     WHEN T2.percent_to_avg > 0.6
+                                          AND T2.percent_to_avg <=0.8 THEN 'short'
+                                     ELSE 'very short'
+                                 END AS PlaylistName,
+                                 T2.percent_to_avg
+FROM T2;
